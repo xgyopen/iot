@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta chajavascriptset="UTF-8">
+    <title>扬州大学的IOT演示项目</title>
+    <!--<link href="lib/switch-button/bootstrap.min.css" rel="stylesheet">-->
+    <link href="lib/switch-button/bootstrap-switch.min.css" rel="stylesheet">
+    <!--公共CDN-->
+    <script src="https://cdn.staticfile.org/jquery/2.1.3/jquery.min.js"></script>
+    <script src="https://cdn.staticfile.org/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://cdn.staticfile.org/echarts/3.5.0/echarts.min.js"></script>
+    <!--本地库-->
+    <!--<script src="lib/jquery/jquery-2.1.3.min.js"></script>-->
+    <!--<script src="lib/jquery/jquery-ui.min.js"></script>-->
+    <!--<script src="lib/echarts/echarts.diy.js"></script>-->
+    <script src="lib/switch-button/bootstrap-switch.min.js"></script>
+    <!--开关按钮网址：http://demo.htmleaf.com/1502/201502051651/index.html -->
+</head>
+
+<body>
+    <table>
+        <!--温湿度显示-->
+        <tr>
+            <td>
+                <div style="font-size:30px"><b>温湿度显示</b></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div id="temperatureGauge" style="width:200px; height: 200px;"></div>
+            </td>
+            <td>
+                <div id="temperatureLine" style="width:500px; height: 200px;"></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div id="humidityGauge" style="width:200px; height: 200px;"></div>
+            </td>
+            <td>
+                <div id="humidityLine" style="width:500px; height: 200px;"></div>
+            </td>
+        </tr>
+        <!--继电器状态-->
+        <tr>
+            <td>
+                <div style="font-size:30px"><b>继电器状态</b></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <input type="checkbox" name="my-checkbox" checked>
+            </td>
+        </tr>
+    </table>
+
+    <!--空一行-->
+    <br>
+
+    <!--触发器配置-->
+    <table>
+        <tr>
+            <td>
+                <div style="font-size:30px"><b>触发器配置</b></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                湿度高于
+                <input type="text" id="maxHumi" name="max" value="50" style="width:30px; height:20px;"> %RH，无需加湿，继电器关闭
+            </td>
+        </tr>
+        <tr>
+            <td>
+                湿度低于
+                <input type="text" id="minHumi" name="min" value="10" style="width:30px; height:20px;"> %RH，需要加湿，继电器打开
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <button>确认</button>
+            </td>
+        </tr>
+    </table>
+
+    <!--触发器配置-->
+    <script type="text/javascript">
+        var triggerMax, triggerMin;  //同时给另一个函数用
+        //同一个文档里的两个<script type="text/javascript">之间，变量是共享的
+
+        $("button").click(function () {
+            triggerMax = Number($("input[id='maxHumi']").val());
+            triggerMin = Number($("input[id='minHumi']").val());
+            console.log(triggerMax + ";" + triggerMin);
+            if (triggerMax < triggerMin) {
+                alert("最大值应该大于等于最小值，请重新填写！");
+            } else {
+                $.post("/postTrigger",
+                    {
+                        maxNum: triggerMax,
+                        minNum: triggerMin
+                    },
+                    function (data, status) { //数据，状态
+                        // alert("数据: \n" + data + "\n状态: " + status);
+                        if (status === "success") {
+                            alert("触发器参数修改成功" + "(" + data + ")");
+                        } else {
+                            alert("触发器参数修改失败，请重新尝试");
+                        }
+                    });
+            }
+        });
+
+        //提交的是上次点击“提交”按钮所提交的值，即triggerMax, triggerMin
+        function touchTrigger() {
+            $.post("/postTrigger",
+                {
+                    maxNum: triggerMax,
+                    minNum: triggerMin
+                },
+                function (data, status) { //数据，状态
+                    // alert("数据: \n" + data + "\n状态: " + status);
+                    if (status === "success") {
+                        console.log("触发触发器成功" + "(" + data + ")");
+                    } else {
+                        console.log("触发触发器失败，请重新尝试");
+                    }
+                });
+        }
+    </script>
+
+    <!--温湿度显示、继电器状态-->
+    <script type="application/javascript">
+        //设备类型对应表
+        var DEVICE_ID = {
+            temp1: 1,    //温度
+            humi1: 2,    //湿度
+            relay1: 3    //继电器
+        };
+        var KEY_STATE;
+
+        $(document).ready(function () {
+            //初始化开关按钮
+            $("[name='my-checkbox']").bootstrapSwitch();
+
+            //初始化图表
+            var myChart1 = echarts.init(document.getElementById('temperatureGauge'));
+            var myChart2 = echarts.init(document.getElementById('humidityGauge'));
+            var myChart3 = echarts.init(document.getElementById('temperatureLine'));
+            var myChart4 = echarts.init(document.getElementById('humidityLine'));
+
+            // **********关于开关按钮**********
+            function showKeyState() {
+                $.ajax({
+                    url: '/1data/' + DEVICE_ID.relay1,
+                    type: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        if ("0" === data[0].dvalue) {
+                            KEY_STATE = false;
+                        } else if ("1" === data[0].dvalue) {
+                            KEY_STATE = true;
+                        }
+                        $('input[name="my-checkbox"]').bootstrapSwitch('state', KEY_STATE);
+                        console.log(KEY_STATE);
+                    },
+                    error: function (data) {
+                        // alert('error');
+                    }
+                });
+            }
+
+            //在开关按钮状态改变时触发
+            $('input[name="my-checkbox"]').on('switchChange.bootstrapSwitch', function (event, state) {
+                // console.log(this); // DOM element
+                // console.log(event); // jQuery event
+                // console.log(">" + state); // true | false（即将切换成的按钮的状态）
+                // console.log(">>" + KEY_STATE);
+                //由于按钮自动切换也触发本函数，故需屏蔽；做到只有手动点击时触发
+                if (state != KEY_STATE) {
+                    var dvalue = (state === true) ? 1 : 0;
+                    // console.log(">>>" + dvalue);
+                    $.post('/1data/' + DEVICE_ID.relay1,
+                        {
+                            value: dvalue,
+                        },
+                        function (data, status) { //数据，状态
+                            // alert("数据: \n" + data + "\n状态: " + status);
+                            if (status === "success") {
+                                // alert("触发器参数修改成功" + "(" + data + ")");
+                            } else {
+                                // alert("触发器参数修改成功失败，请重新尝试");
+                            }
+                        });
+                }
+            });
+
+            // **********关于仪表盘、折线图**********
+            // 指定仪表盘的初始配置
+            var gaugeOption = {
+                tooltip: {
+                    formatter: "{b} : {c}℃"
+                },
+                series: [{
+                    name: '温度', //系列名称，用于tooltip的显示，legend 的图例筛选，在 setOption 更新数据和配置项时用于指定对应的系列
+                    type: 'gauge',
+                    radius: '99%', //仪表盘半径，可以是相对于容器高宽中较小的一项的一半的百分比，也可以是绝对的数值
+                    startAngle: 225, //仪表盘起始角度。圆心 正右手侧为0度，正上方为90度，正左手侧为180度
+                    endAngle: -45,
+                    clockwise: true, //仪表盘刻度是否是顺时针增长。
+                    min: -10, //最小的数据值
+                    max: 50,
+                    splitNumber: 10, //仪表盘刻度的分割段数
+                    axisLine: { //仪表盘轴线相关配置
+                        show: true,
+                        lineStyle: {
+                            color: [
+                                [0.2, '#228b22'],
+                                [0.8, '#4488bb'],
+                                [1, '#ff4500']
+                            ], //仪表盘每段的颜色
+                            width: 15,
+                        },
+                    },
+                    splitLine: { //分隔线样式
+                        show: true,
+                        length: 15,
+                    },
+                    axisTick: { //刻度样式
+                        show: true,
+                        splitNumber: 5,
+                        length: 8, //刻度线长。支持相对半径的百分比
+                    },
+                    axisLabel: { //刻度标签
+                        show: true,
+                        distance: 5,
+                        //formatter: '{value}'
+                    },
+                    pointer: { //仪表盘指针
+                        show: true,
+                        length: '80%', //指针长度，可以是绝对数值，也可以是相对于半径的半分比
+                        width: 8,
+                    },
+                    title: { //仪表盘标题
+                        show: true,
+                        offsetCenter: [0, '-40%'],
+                        textStyle: {
+                            color: '#333',
+                            fontSize: 15,
+                        },
+                    },
+                    detail: { //仪表盘详情，用于显示数据
+                        show: true,
+                        width: 100,
+                        height: 40,
+                        backgroundColor: 'transparent',
+                        borderColor: '#ccc',
+                        offsetCenter: [0, '40%'], //相对于仪表盘中心的偏移位置，数组第一项是水平方向的偏移，第二项是垂直方向的偏移
+                        formatter: '{value}℃',
+                    },
+                    markPoint: {
+                        symbol: 'circle',
+                    },
+                    data: [{
+                        value: 50,
+                        name: '温度'
+                    }]
+                }],
+            };
+
+            // 指定折线图的初始配置
+            var lineOption = {
+                title: {
+                    text: ''
+                },
+                legend: {
+                    data: []
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function (params) {
+                        return '';
+                    },
+                },
+                xAxis: {
+                    type: 'time',
+                    name: '',
+                    splitLine: {
+                        show: false
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '',
+                    splitLine: {
+                        show: true,
+                        lineStyle: {
+                            type: 'dashed',
+                        }
+                    }
+                },
+                series: [{
+                    name: '',
+                    type: 'line',
+                    showSymbol: true,
+                    hoverAnimation: true,
+                    itemStyle: {
+                        normal: {
+                            color: '#FF3100',
+                        }
+                    },
+                    data: [],
+                }]
+            };
+
+            //显示温度仪表盘
+            var temperatureGaugeOption = gaugeOption;
+
+            function showTemperatureGauge() {
+                $.ajax({
+                    url: '/1data/' + DEVICE_ID.temp1,
+                    type: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        temperatureGaugeOption.tooltip.formatter = "{b} : {c}℃";
+                        temperatureGaugeOption.series[0].detail.formatter = "{value}℃";
+                        temperatureGaugeOption.series[0].name = "温度";
+                        temperatureGaugeOption.series[0].min = -10;
+                        temperatureGaugeOption.series[0].max = 40;
+                        temperatureGaugeOption.series[0].data[0].name = "温度";
+                        temperatureGaugeOption.series[0].data[0].value = data[0].dvalue;
+                        myChart1.setOption(temperatureGaugeOption, true);
+                    },
+                    error: function (data) {
+                        // alert('error');
+                    }
+                });
+            }
+
+            //显示湿度仪表盘
+            var humidityGaugeOption = gaugeOption;
+
+            function showHumidityGauge() {
+                $.ajax({
+                    url: '/1data/' + DEVICE_ID.humi1,
+                    type: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        humidityGaugeOption.tooltip.formatter = "{b} : {c}%";
+                        humidityGaugeOption.series[0].detail.formatter = "{value}%";
+                        humidityGaugeOption.series[0].name = "湿度";
+                        humidityGaugeOption.series[0].min = 0;
+                        humidityGaugeOption.series[0].max = 100;
+                        humidityGaugeOption.series[0].data[0].name = "湿度";
+                        humidityGaugeOption.series[0].data[0].value = data[0].dvalue;
+                        myChart2.setOption(humidityGaugeOption, true);
+                    },
+                    error: function (data) {
+                        // alert('error');
+                    }
+                });
+            }
+
+            //显示温度折线图
+            var temperatureLineOption = lineOption;
+
+            function showTemperatureLine() {
+                $.ajax({
+                    url: '/ndata/' + DEVICE_ID.temp1,
+                    type: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        var datas = [];
+                        for (var i = 0; i < data.length; i++) {
+                            var temp = [];
+                            // temp[0] = data[i].createtime;
+                            temp[0] = new Date(Date.parse(data[i].createtime));//给echarts的不能是随意的String，要符合规范，最好是Date类型
+                            temp[1] = data[i].dvalue; //parseInt(data[i].dvalue);
+                            datas[i] = temp;
+                        }
+                        //模拟数据
+                        // datas = [["2017-04-19T15:00",20],["2017-04-19T15:10",21],["2017-04-19T15:20",25],["2017-04-19T15:30",24],["2017-04-19T15:40",23],["2017-04-19T15:50",20],["2017-04-19T16:00",21],["2017-04-19T16:10",28],["2017-04-19T16:20",18],["2017-04-19T16:30",20]];
+                        //temperatureLineOption.title.text="温度";
+                        temperatureLineOption.series[0].name = "温度";
+                        temperatureLineOption.legend.data = ["温度"];
+                        temperatureLineOption.yAxis.name = "温度/℃";
+                        //temperatureLineOption.yAxis.min=-10;
+                        //temperatureLineOption.yAxis.max=40;
+                        temperatureLineOption.tooltip.formatter = function (params) {
+                            params = params[0];
+                            return '时间：' + params.value[0] + '<br>温度：' + params.value[1] + '℃';
+                        };
+                        temperatureLineOption.series[0].itemStyle.normal.color = "#FF3100";
+                        temperatureLineOption.series[0].data = datas;
+                        myChart3.setOption(temperatureLineOption, true);
+                    },
+                    error: function (data) {
+                        // alert('error');
+                    }
+                });
+            }
+
+            //显示湿度折线图
+            var humidityLineOption = lineOption;
+
+            function showHumidityLine() {
+                $.ajax({
+                    url: '/ndata/' + DEVICE_ID.humi1,
+                    type: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        var datas = [];
+                        for (var i = 0; i < data.length; i++) {
+                            var temp = [];
+                            temp[0] = new Date(Date.parse(data[i].createtime));
+                            temp[1] = data[i].dvalue;
+                            datas[i] = temp;
+                        }
+                        //humidityLineOption.title.text="湿度";
+                        humidityLineOption.series[0].name = "湿度";
+                        humidityLineOption.legend.data = ["湿度"];
+                        humidityLineOption.yAxis.name = "湿度/%";
+                        //humidityLineOption.yAxis.min=0;
+                        //humidityLineOption.yAxis.max=100;
+                        humidityLineOption.tooltip.formatter = function (params) {
+                            params = params[0];
+                            return '时间：' + params.value[0] + '<br>湿度：' + params.value[1] + '%';
+                        };
+                        humidityLineOption.series[0].itemStyle.normal.color = "#0000FF";
+                        humidityLineOption.series[0].data = datas;
+                        myChart4.setOption(humidityLineOption, true);
+                    },
+                    error: function (data) {
+                        // alert('error');
+                    }
+                });
+            }
+
+            // **********初始化时调用**********
+            //调用显示图表函数
+            showTemperatureGauge();
+            showHumidityGauge();
+            showTemperatureLine();
+            showHumidityLine();
+            showKeyState();
+            // $("button").trigger("click"); //模拟点击“提交”按钮，提交触发器的最大值、最小值数据（与下面3行代码功能基本等同）
+            triggerMax = Number($("input[id='maxHumi']").val());
+            triggerMin = Number($("input[id='minHumi']").val());
+            touchTrigger();
+            // **********定时器每隔2秒调用**********
+            setInterval(function () {
+                showTemperatureGauge();
+                showHumidityGauge();
+                showTemperatureLine();
+                showHumidityLine();
+                touchTrigger();
+                showKeyState();
+            }, 2000);
+        });
+    </script>
+</body>
+
+</html>
