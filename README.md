@@ -1,5 +1,6 @@
 # iot
 详见本人博客[Arduino+Node.js实现物联网](https://xgyopen.github.io/2018/02/10/2018-02-10-project-iot/)。
+
 代码说明：
 /Arduino_api
 
@@ -7,7 +8,7 @@
 
 /NodeJS_api
 
-    服务器端代码（应用层），包含接收单片机数据并保存至数据库、接收前台请求并向单片机端发送命令、提供RESTful API。
+    服务器端代码（应用层），包含接收单片机数据并保存至数据库、接收前台请求并向单片机端发送命令、提供RESTful API等。
 
 IOT_YD.apk
 
